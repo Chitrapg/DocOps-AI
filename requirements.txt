@@ -1,0 +1,75 @@
+# =========================
+# Core Python & Utility
+# =========================
+python-dotenv
+requests
+tqdm
+certifi
+
+# =========================
+# LLM / LangChain Ecosystem
+# =========================
+langchain
+langchain-core
+langchain-community
+langchain-postgres
+langchain_neo4j
+langchain-experimental
+langchain-groq
+langchain_openai
+
+# =========================
+# Vector Database / Postgres
+# =========================
+psycopg[binary]
+psycopg2-binary
+pgvector
+sqlalchemy
+
+# =========================
+# Embeddings
+# =========================
+sentence-transformers
+
+# =========================
+# Graph Database
+# =========================
+neo4j
+
+# =========================
+# Frontend (Chat UI / Testcase UI)
+# =========================
+streamlit
+
+# =========================
+# FastAPI Backend (Optional)
+# =========================
+fastapi
+uvicorn
+
+# =========================
+# PDF / Document Parsing
+# =========================
+PyPDF2
+pdfminer.six
+pypdf
+
+# =========================
+# Jira Integration
+# =========================
+jira
+
+# =========================
+# Image Processing (for Confluence Vision Agent)
+# =========================
+Pillow
+
+# =========================
+# JSON schema / Pydantic
+# =========================
+pydantic
+
+# =========================
+# Groq SDK (Vision + Chat Completion)
+# =========================
+groq
