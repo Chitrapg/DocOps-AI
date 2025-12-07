@@ -56,11 +56,11 @@ def _build_connection_strings() -> Dict[str, str]:
         # Accept a full URI. We still return SQLALCHEMY & PGVECTOR variants (same)
         return {"pgvector_connection": env_uri, "sqlalchemy_url": env_uri}
 
-    user = os.getenv("PGUSER")
-    password = os.getenv("PGPASSWORD")
-    host = os.getenv("PGHOST", "localhost")
-    port = os.getenv("PGPORT", "5432")
-    db = os.getenv("PGDATABASE")
+    user = os.getenv("PG_USER")
+    password = os.getenv("PG_PASSWORD")
+    host = os.getenv("PG_HOST", "localhost")
+    port = os.getenv("PG_PORT", "5432")
+    db = os.getenv("PG_DATABASE")
 
     if not all([user, password, db]):
         raise RuntimeError("PGUSER, PGPASSWORD and PGDATABASE must be set in environment (.env)")

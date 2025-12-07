@@ -25,6 +25,7 @@ psycopg[binary]
 psycopg2-binary
 pgvector
 sqlalchemy
+pydantic-settings
 
 # =========================
 # Embeddings
