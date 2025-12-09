@@ -93,55 +93,74 @@ def call_rag_tool(query: str, chat_history: Optional[list] = None) -> dict:
         logger.exception("RAG tool failed")
         return {"route": "rag", "success": False, "error": str(e)}
 
-@tool("GenerateTestcases", description="Generate testcases from the ingested functional doc and optionally push to Jira.")
+@tool(
+    "GenerateTestcases",
+    description="Generate testcases from the ingested functional doc and optionally push to Jira."
+)
 def call_generate_testcases(query: str, dry_run: bool = True) -> dict:
     """
-    query: natural language instruction
-    dry_run: if True -> do NOT push to Jira; return parsed testcases & markdown only.
-    Returns dict with keys: route, success, gen_id, md_table, parsed_count, parsed (list), created (list), errors (list)
+    Returns a dict:
+      {
+        "route": "generate_testcases",
+        "success": True/False,
+        "gen_id": "...",
+        "md_table": "<markdown table string>",
+        "parsed_count": N,
+        "parsed": [...],                # list of normalized testcases (dicts)
+        "created": ["JIRA-1","JIRA-2"], # only when dry_run==False
+        "errors": ["..."]               # any errors during push
+      }
     """
     logger.info("Testcase agent invoked: dry_run=%s, query=%s", dry_run, query)
-    if generate_testcases is None:
-        return {"route": "generate_testcases", "success": False, "error": "Testcase generator not available."}
-
-    # Step 1: retrieve grounding (use local retriever function)
-    grounding = []
     try:
         from src.retriever import retrieve_grounding_for_query
-        grounding = retrieve_grounding_for_query(query, top_k=8)
-    except Exception as e:
-        logger.debug("Grounding retrieval unavailable or failed: %s", e)
-        grounding = []
+    except Exception:
+        retrieve_grounding_for_query = None
+
+    # 1) retrieve grounding
+    grounding = []
+    if retrieve_grounding_for_query:
+        try:
+            grounding = retrieve_grounding_for_query(query, top_k=8)
+        except Exception as e:
+            logger.warning("Grounding retrieval failed: %s", e)
+            grounding = []
+
+    # 2) call generator
+    if generate_testcases is None:
+        return {"route": "generate_testcases", "success": False, "error": "Generator not available."}
 
     try:
         gen_id, md_table, parsed = generate_testcases(grounding, query)
     except Exception as e:
-        logger.exception("Generation failed")
-        return {"route": "generate_testcases", "success": False, "error": str(e)}
+        logger.exception("Generation error")
+        return {"route": "generate_testcases", "success": False, "error": f"Generation failed: {e}"}
 
-    response = {
+    parsed = parsed or []
+    resp = {
         "route": "generate_testcases",
         "success": True,
         "gen_id": gen_id,
         "md_table": md_table,
-        "parsed_count": len(parsed) if parsed else 0,
-        "parsed": parsed or [],
+        "parsed_count": len(parsed),
+        "parsed": parsed,
         "created": [],
         "errors": []
     }
 
+    # If dry_run, return preview only
     if dry_run:
-        # Do not push to Jira
-        return response
+        return resp
 
-    # If dry_run == False => attempt to push to Jira
+    # Otherwise attempt to push to Jira
     if create_testcase_issue_from_payload is None:
-        response["errors"].append("Jira client not available (missing imports or credentials).")
-        response["success"] = False
-        return response
+        resp["success"] = False
+        resp["errors"].append("Jira client not available (missing imports or credentials).")
+        return resp
 
     created = []
     errors = []
+
     for tc in parsed:
         try:
             payload = {
@@ -157,13 +176,13 @@ def call_generate_testcases(query: str, dry_run: bool = True) -> dict:
             key = create_testcase_issue_from_payload(payload)
             created.append(key)
         except Exception as e:
-            logger.exception("Failed to create Jira issue for testcase %s: %s", tc.get("id"), e)
+            logger.exception("Failed to create Jira issue for testcase %s", tc.get("id"))
             errors.append(str(e))
 
-    response["created"] = created
-    response["errors"] = errors
-    response["success"] = len(errors) == 0
-    return response
+    resp["created"] = created
+    resp["errors"] = errors
+    resp["success"] = len(errors) == 0
+    return resp
 
 
 @tool("GenerateConfluence", description="Generate Confluence help document from FRD + screenshots and optionally push.")
