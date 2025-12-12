@@ -25,26 +25,31 @@ except Exception:
     GroqClient = None
     _HAS_GROQ_HTTP = False
 
-# Config (Confluence envs - with fallback to Jira credentials)
-CONFLUENCE_BASE_URL = os.getenv("CONFLUENCE_BASE_URL")
-# Allow fallback to JIRA_EMAIL if CONFLUENCE_USERNAME not set
-CONFLUENCE_USERNAME = os.getenv("CONFLUENCE_USERNAME") or os.getenv("JIRA_EMAIL")
-# Allow fallback to JIRA_API_TOKEN if CONFLUENCE_API_TOKEN not set
-CONFLUENCE_API_TOKEN = os.getenv("CONFLUENCE_API_TOKEN") or os.getenv("JIRA_API_TOKEN")
-CONFLUENCE_SPACE_KEY = os.getenv("CONFLUENCE_SPACE_KEY")
+# Note: Confluence config is now read at runtime inside functions to allow .env updates without restart
 
 logger = logging.getLogger(__name__)
 
 
+def _get_confluence_config():
+    """Get Confluence config at runtime, with fallback to Jira credentials."""
+    return {
+        "base_url": os.getenv("CONFLUENCE_BASE_URL"),
+        "username": os.getenv("CONFLUENCE_USERNAME") or os.getenv("JIRA_EMAIL"),
+        "api_token": os.getenv("CONFLUENCE_API_TOKEN") or os.getenv("JIRA_API_TOKEN"),
+        "space_key": os.getenv("CONFLUENCE_SPACE_KEY"),
+    }
+
+
 def _validate_confluence_config():
+    config = _get_confluence_config()
     missing = []
-    if not CONFLUENCE_BASE_URL:
+    if not config["base_url"]:
         missing.append("CONFLUENCE_BASE_URL")
-    if not CONFLUENCE_USERNAME:
+    if not config["username"]:
         missing.append("CONFLUENCE_USERNAME (or JIRA_EMAIL)")
-    if not CONFLUENCE_API_TOKEN:
+    if not config["api_token"]:
         missing.append("CONFLUENCE_API_TOKEN (or JIRA_API_TOKEN)")
-    if not CONFLUENCE_SPACE_KEY:
+    if not config["space_key"]:
         missing.append("CONFLUENCE_SPACE_KEY")
     
     if missing:
@@ -52,6 +57,7 @@ def _validate_confluence_config():
             f"Confluence configuration incomplete. Missing: {', '.join(missing)}. "
             f"Please set these in your .env file."
         )
+    return config
 
 
 def _post_confluence_page(title: str, html_content: str) -> Dict[str, Any]:
@@ -61,13 +67,13 @@ def _post_confluence_page(title: str, html_content: str) -> Dict[str, Any]:
     """
     import requests
 
-    _validate_confluence_config()
-    url = f"{CONFLUENCE_BASE_URL.rstrip('/')}/rest/api/content"
+    config = _validate_confluence_config()
+    url = f"{config['base_url'].rstrip('/')}/rest/api/content"
     unique_title = f"{title} – {__import__('datetime').datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')}"
     payload = {
         "type": "page",
         "title": unique_title,
-        "space": {"key": CONFLUENCE_SPACE_KEY},
+        "space": {"key": config['space_key']},
         "body": {
             "storage": {
                 "value": html_content,
@@ -80,7 +86,7 @@ def _post_confluence_page(title: str, html_content: str) -> Dict[str, Any]:
     resp = requests.post(
         url,
         json=payload,
-        auth=(CONFLUENCE_USERNAME, CONFLUENCE_API_TOKEN),
+        auth=(config['username'], config['api_token']),
         headers={"Content-Type": "application/json"},
         timeout=60,
     )
@@ -170,7 +176,8 @@ def create_confluence_page_from_text(frd_text: str, title: str, push: bool = Fal
         # derive a public URL if Confluence returns _links
         links = api_resp.get("_links", {})
         webui = links.get("webui")
-        base = links.get("base", CONFLUENCE_BASE_URL)
+        config = _get_confluence_config()
+        base = links.get("base", config["base_url"])
         page_url = (base.rstrip("/") + webui) if webui else None
 
         result.update({"api_response": api_resp, "page_url": page_url})

@@ -167,7 +167,9 @@ if ingest_button and uploaded:
 if st.button("Ask") and query.strip():
     with st.spinner("Processing..."):
         try:
-            dry_run_flag = not bool(st.session_state.get("approved_push", False))
+            approved_push = bool(st.session_state.get("approved_push", False))
+            dry_run_flag = not approved_push
+            print(f"[DEBUG] approved_push={approved_push}, dry_run_flag={dry_run_flag}")
 
             if handle_user_input is not None:
                 # Try flexible calls to orchestrator to support varying signatures.

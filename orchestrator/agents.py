@@ -205,8 +205,11 @@ def call_generate_confluence(query: str, dry_run: bool = True) -> dict:
         grounding = []
 
     title = f"Help - {query[:60]}"
+    push_flag = not dry_run
+    logger.info("Confluence: dry_run=%s, push_flag=%s", dry_run, push_flag)
     try:
-        result = create_confluence_page_from_grounding(grounding, title, push=(not dry_run))
+        result = create_confluence_page_from_grounding(grounding, title, push=push_flag)
+        logger.info("Confluence result keys: %s, has page_url: %s", list(result.keys()), 'page_url' in result)
         # result may be dict with 'html', 'page_url', etc.
         return {"route": "generate_confluence", "success": True, "result": result}
     except Exception as e:
