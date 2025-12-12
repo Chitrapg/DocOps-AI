@@ -199,7 +199,9 @@ def call_generate_confluence(query: str, dry_run: bool = True) -> dict:
         # use retriever to build grounding
         from src.retriever import retrieve_grounding_for_query
         grounding = retrieve_grounding_for_query(query, top_k=8)
-    except Exception:
+        logger.info("Retrieved %d grounding chunks for confluence generation", len(grounding))
+    except Exception as e:
+        logger.warning("Grounding retrieval failed (check PG_DB etc.): %s", e)
         grounding = []
 
     title = f"Help - {query[:60]}"

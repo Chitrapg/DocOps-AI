@@ -209,14 +209,33 @@ if st.button("Ask") and query.strip():
     if isinstance(res, dict):
         route = res.get("route") or res.get("tool") or route
         turn["route"] = route
+        
+        # Extract result dict if present (Confluence agent uses this pattern)
+        result_val = res.get("result")
+        
         # Prefer markdown table preview when available
         if res.get("md_table"):
             turn["md_table"] = res.get("md_table")
         elif res.get("html"):
             turn["html"] = res.get("html")
+        elif isinstance(result_val, dict) and result_val.get("html"):
+            # Handle nested result.html from Confluence agent
+            turn["html"] = result_val.get("html")
+            # Also extract page_url and error if present
+            if result_val.get("page_url"):
+                turn["page_url"] = result_val.get("page_url")
+            if result_val.get("error"):
+                turn["a"] = f"Error: {result_val.get('error')}"
         else:
-            # try to find textual answer
-            t = res.get("result") or res.get("final_answer") or res.get("output") or res.get("answer") or res.get("text")
+            # try to find textual answer - handle nested RAG response
+            t = None
+            if isinstance(result_val, dict):
+                # RAG agent returns {"result": {"final_answer": ..., "graph_answer": ..., "vector_contexts": ...}}
+                t = result_val.get("final_answer") or result_val.get("answer") or result_val.get("output")
+            if t is None:
+                t = res.get("final_answer") or res.get("output") or res.get("answer") or res.get("text")
+            if t is None and isinstance(result_val, str):
+                t = result_val
             if t is None and res.get("success") is False and res.get("error"):
                 t = res.get("error")
             turn["a"] = t
@@ -303,13 +322,34 @@ for idx, turn in enumerate(reversed(st.session_state.history)):
                         st.error(f"Errors when creating Jira issues: {errors}")
                         turn["errors"] = errors
 
-    # If HTML preview available (Confluence), show a short preview and allow expand
+    # If HTML preview available (Confluence), show a natural response and HTML preview
     elif "html" in turn and turn.get("html"):
-        st.markdown("**A (Confluence HTML preview):**")
-        preview_plain = str(turn.get("html")).replace("\n", " ")[:1000]
-        st.markdown(preview_plain + ("..." if len(str(turn.get("html"))) > 1000 else ""))
-        with st.expander("Show raw HTML / full output"):
-            st.code(turn.get("html"))
+        # Generate natural text response
+        route_name = turn.get("route", "generate_confluence")
+        html_content = turn.get("html", "")
+        
+        # Extract title from HTML if present
+        import re
+        title_match = re.search(r'<h1[^>]*>([^<]+)</h1>', html_content, re.IGNORECASE)
+        doc_title = title_match.group(1) if title_match else "Confluence Help Document"
+        
+        # Show natural language response
+        if turn.get("page_url"):
+            st.markdown(f"**A:** ✅ I've generated and published the **{doc_title}** to Confluence successfully!")
+            st.success(f"📄 [View on Confluence]({turn.get('page_url')})")
+        elif turn.get("a") and "Error" in str(turn.get("a")):
+            st.markdown(f"**A:** I've generated the **{doc_title}**, but there was an issue pushing to Confluence:")
+            st.error(turn.get("a"))
+        else:
+            st.markdown(f"**A:** I've generated the **{doc_title}**. The HTML content is ready below. To push to Confluence, make sure your environment has `CONFLUENCE_USERNAME`, `CONFLUENCE_API_TOKEN`, and `CONFLUENCE_SPACE_KEY` configured, then enable 'Approve push' and try again.")
+        
+        # Show HTML preview in expander
+        with st.expander("📝 View Generated HTML Content", expanded=False):
+            # Render HTML directly
+            st.markdown(html_content, unsafe_allow_html=True)
+        
+        with st.expander("🔧 Show Raw HTML Code"):
+            st.code(html_content, language="html")
 
     # If created keys are present, show success
     if "created" in turn and turn.get("created"):

@@ -120,6 +120,13 @@ class PGVectorStore:
                 self.engine = None
 
         # Instantiate PGVector using the connection string
+        # Add engine_args for connection pool settings to handle stale connections
+        engine_args = {
+            "pool_pre_ping": True,  # Check connection health before using
+            "pool_recycle": 300,    # Recycle connections after 5 minutes
+            "pool_size": 5,
+            "max_overflow": 10,
+        }
         try:
             # docs show signature: PGVector(embeddings=..., collection_name=..., connection=..., use_jsonb=...)
             self.vs = PGVector(
@@ -127,6 +134,7 @@ class PGVectorStore:
                 collection_name=self.table,
                 connection=pgvector_conn,
                 use_jsonb=use_jsonb,
+                engine_args=engine_args,
             )
         except TypeError as e:
             # fallback attempt: some versions accept 'connection_string' or different param names

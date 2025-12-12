@@ -25,20 +25,32 @@ except Exception:
     GroqClient = None
     _HAS_GROQ_HTTP = False
 
-# Config (Confluence envs)
+# Config (Confluence envs - with fallback to Jira credentials)
 CONFLUENCE_BASE_URL = os.getenv("CONFLUENCE_BASE_URL")
-CONFLUENCE_USERNAME = os.getenv("CONFLUENCE_USERNAME")
-CONFLUENCE_API_TOKEN = os.getenv("CONFLUENCE_API_TOKEN")
+# Allow fallback to JIRA_EMAIL if CONFLUENCE_USERNAME not set
+CONFLUENCE_USERNAME = os.getenv("CONFLUENCE_USERNAME") or os.getenv("JIRA_EMAIL")
+# Allow fallback to JIRA_API_TOKEN if CONFLUENCE_API_TOKEN not set
+CONFLUENCE_API_TOKEN = os.getenv("CONFLUENCE_API_TOKEN") or os.getenv("JIRA_API_TOKEN")
 CONFLUENCE_SPACE_KEY = os.getenv("CONFLUENCE_SPACE_KEY")
 
 logger = logging.getLogger(__name__)
 
 
 def _validate_confluence_config():
-    if not all([CONFLUENCE_BASE_URL, CONFLUENCE_USERNAME, CONFLUENCE_API_TOKEN, CONFLUENCE_SPACE_KEY]):
+    missing = []
+    if not CONFLUENCE_BASE_URL:
+        missing.append("CONFLUENCE_BASE_URL")
+    if not CONFLUENCE_USERNAME:
+        missing.append("CONFLUENCE_USERNAME (or JIRA_EMAIL)")
+    if not CONFLUENCE_API_TOKEN:
+        missing.append("CONFLUENCE_API_TOKEN (or JIRA_API_TOKEN)")
+    if not CONFLUENCE_SPACE_KEY:
+        missing.append("CONFLUENCE_SPACE_KEY")
+    
+    if missing:
         raise RuntimeError(
-            "Confluence configuration incomplete. "
-            "Please set CONFLUENCE_BASE_URL, CONFLUENCE_USERNAME, CONFLUENCE_API_TOKEN and CONFLUENCE_SPACE_KEY in the environment."
+            f"Confluence configuration incomplete. Missing: {', '.join(missing)}. "
+            f"Please set these in your .env file."
         )
 
 
@@ -173,6 +185,21 @@ def create_confluence_page_from_text(frd_text: str, title: str, push: bool = Fal
 def create_confluence_page_from_grounding(grounding_chunks: list, title: str, push: bool = False) -> Dict[str, Any]:
     """
     Build FRD text from grounding chunks list (each chunk is dict with 'text') and call create_confluence_page_from_text.
+    If grounding is empty, returns an error message instead of generating empty content.
     """
-    frd_text = "\n\n".join([c.get("text", "") for c in grounding_chunks])
+    if not grounding_chunks:
+        return {
+            "html": "<p>No documents found to generate help content from. Please ingest documents first using the sidebar, then try again.</p>",
+            "error": "No grounding documents available. Please ingest some documents (PDF/DOCX) using the sidebar first."
+        }
+    
+    frd_text = "\n\n".join([c.get("text", "") for c in grounding_chunks if c.get("text")])
+    
+    if not frd_text.strip():
+        return {
+            "html": "<p>The retrieved documents contained no text content. Please ensure your uploaded documents have readable text.</p>",
+            "error": "Retrieved documents had no readable text content."
+        }
+    
     return create_confluence_page_from_text(frd_text=frd_text, title=title, push=push)
+
