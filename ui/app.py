@@ -135,6 +135,24 @@ for turn in reversed(st.session_state.history[-10:]):
             # RAG response
             if "final_answer" in result:
                 st.markdown(result["final_answer"])
+                
+                # Show context info
+                vector_count = result.get("vector_count", 0)
+                graph_count = result.get("graph_count", 0)
+                st.caption(f"📊 Sources: {vector_count} vector, {graph_count} graph contexts")
+                
+                # Debug expander
+                if vector_count > 0 or graph_count > 0:
+                    with st.expander("🔍 View Retrieved Contexts"):
+                        contexts = result.get("contexts", {})
+                        if contexts.get("vector"):
+                            st.markdown("**Vector Contexts:**")
+                            for i, ctx in enumerate(contexts["vector"], 1):
+                                st.text(f"{i}. [{ctx.get('source', 'unknown')}] {ctx.get('text', '')[:200]}...")
+                        if contexts.get("graph"):
+                            st.markdown("**Graph Contexts:**")
+                            for i, ctx in enumerate(contexts["graph"], 1):
+                                st.text(f"{i}. [{ctx.get('source', 'unknown')}] {ctx.get('text', '')[:200]}...")
             
             # Testcase response
             elif "md_table" in result:

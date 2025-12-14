@@ -180,6 +180,74 @@ class Neo4jStore:
         with self._get_session() as s:
             s.run(cypher, {"doc_id": doc_id, "topic": topic})
 
+    def search_nodes(self, keyword: str, limit: int = 5) -> List[Dict[str, Any]]:
+        """
+        Search for nodes containing the keyword in their properties.
+        Returns list of matching nodes with their properties.
+        """
+        cypher = """
+        MATCH (n)
+        WHERE any(key in keys(n) WHERE toString(n[key]) CONTAINS $keyword)
+        RETURN labels(n) as labels, properties(n) as props
+        LIMIT $limit
+        """
+        try:
+            with self._get_session() as s:
+                result = s.run(cypher, {"keyword": keyword.lower(), "limit": limit})
+                nodes = []
+                for record in result:
+                    labels = record.get("labels", [])
+                    props = record.get("props", {})
+                    nodes.append({
+                        "labels": labels,
+                        "properties": props,
+                        "text": f"{'/'.join(labels)}: {props.get('id', props.get('name', props.get('title', str(props))))}"
+                    })
+                return nodes
+        except Exception as e:
+            print(f"Node search failed: {e}")
+            return []
+
+    def search_topics(self, keyword: str, limit: int = 10) -> List[str]:
+        """
+        Search for Topic nodes containing the keyword.
+        """
+        cypher = """
+        MATCH (t:Topic)
+        WHERE toLower(t.name) CONTAINS $keyword
+        RETURN t.name as name
+        LIMIT $limit
+        """
+        try:
+            with self._get_session() as s:
+                result = s.run(cypher, {"keyword": keyword.lower(), "limit": limit})
+                return [record.get("name") for record in result if record.get("name")]
+        except Exception:
+            return []
+
+    def get_related_nodes(self, node_id: str, limit: int = 5) -> List[Dict[str, Any]]:
+        """
+        Get nodes related to a specific node.
+        """
+        cypher = """
+        MATCH (n {id: $node_id})-[r]-(m)
+        RETURN type(r) as rel_type, labels(m) as labels, properties(m) as props
+        LIMIT $limit
+        """
+        try:
+            with self._get_session() as s:
+                result = s.run(cypher, {"node_id": node_id, "limit": limit})
+                related = []
+                for record in result:
+                    related.append({
+                        "relationship": record.get("rel_type"),
+                        "labels": record.get("labels", []),
+                        "properties": record.get("props", {})
+                    })
+                return related
+        except Exception:
+            return []
+
     # -------------------------
     # MAIN: Insert graph from LLM graph_documents
     # -------------------------
