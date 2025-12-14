@@ -1,7 +1,7 @@
 # core/db/postgres.py - Moved from src/db.py
 import psycopg2
 import psycopg2.extras
-from app.config import settings
+from core.config import settings
 import json
 
 DSN = {

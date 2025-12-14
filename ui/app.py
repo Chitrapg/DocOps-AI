@@ -75,9 +75,17 @@ with st.sidebar:
                         tmp.write(f.getbuffer())
                         tmp.close()
                         
-                        # Extract text
-                        text = extract_pdf_text(tmp.name)
-                        st.success(f"✅ Ingested {f.name} ({len(text)} chars)")
+                        # Full ingestion: vectors + graph
+                        try:
+                            from core.ingest.pipeline import ingest_pdf
+                            result = ingest_pdf(tmp.name, source_name=f.name)
+                            chunks = result.get("added_chunks", 0)
+                            graphs = result.get("graph_fragments", 0)
+                            st.success(f"✅ Ingested {f.name}: {chunks} chunks, {graphs} graph fragments")
+                        except Exception as e:
+                            # Fallback to just PDF text extraction
+                            text = extract_pdf_text(tmp.name)
+                            st.success(f"✅ Extracted {f.name} ({len(text)} chars) - graph extraction unavailable")
                         
                         # Cleanup
                         os.unlink(tmp.name)

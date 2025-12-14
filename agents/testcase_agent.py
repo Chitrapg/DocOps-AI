@@ -27,7 +27,7 @@ class TestcaseAgent(BaseAgent):
         
         # Generate test cases
         try:
-            from src.generator import generate_testcases
+            from core.testcase_generator import generate_testcases
             gen_id, md_table, parsed = generate_testcases(grounding, query)
         except Exception as e:
             self.log(f"Generation failed: {e}", "error")
