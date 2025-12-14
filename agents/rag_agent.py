@@ -139,26 +139,30 @@ class RAGAgent(BaseAgent):
             
             # Build synthesis prompt
             prompt_parts = [
-                "You are a helpful assistant that merges structured KG facts with textual evidence.",
+                "You are a helpful assistant. Answer the user's question directly and concisely.",
                 f"User question: {query}",
-                "",
-                "Graph-derived answer (facts from the knowledge graph):",
-                graph_answer or "(no graph answer available)",
                 "",
             ]
             
+            # Add graph answer if available
+            if graph_answer:
+                prompt_parts.append("Knowledge Graph Answer:")
+                prompt_parts.append(graph_answer)
+                prompt_parts.append("")
+            
+            # Add vector contexts if available
             if vector_contexts:
-                prompt_parts.append("Top textual contexts (from document vector search):")
-                for i, c in enumerate(vector_contexts[:5], 1):
-                    snippet = c.get("text", "")[:800]
+                prompt_parts.append("Document Contexts:")
+                for i, c in enumerate(vector_contexts[:3], 1):
+                    snippet = c.get("text", "")[:500]
                     prompt_parts.append(f"[{i}] {snippet}")
                 prompt_parts.append("")
             
             prompt_parts.append(
-                "Task: Provide a concise final answer to the user's question. "
-                "Use the graph facts as authoritative for named entities/relations. "
-                "If you use evidence from the contexts, indicate the context index in square brackets (e.g., [1]). "
-                "If the information isn't present, say you don't have enough information."
+                "Task: Give a direct, concise answer. "
+                "Do NOT explain which sources you used or didn't use. "
+                "Do NOT say 'based on the graph' or 'from the contexts'. "
+                "Just answer the question directly."
             )
             
             prompt = "\n".join(prompt_parts)
@@ -167,7 +171,7 @@ class RAGAgent(BaseAgent):
             
         except Exception as e:
             self.log(f"Synthesis failed: {e}", "error")
-            # Fallback
+            # Fallback - return graph answer directly if available
             return graph_answer or "Error generating answer."
     
     def execute(self, query: str, **kwargs) -> Dict[str, Any]:
