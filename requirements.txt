@@ -54,6 +54,7 @@ uvicorn
 PyPDF2
 pdfminer.six
 pypdf
+pymupdf
 
 # =========================
 # Jira Integration

@@ -203,11 +203,6 @@ class Retriever:
         # Streamlit debug display
         try:
             st.write("### Hybrid RAG — Results")
-            # st.markdown("**Graph answer:**")
-            # st.code(graph_resp or "(none)")
-
-            # st.markdown("**Final synthesized answer:**")
-            # st.code(final_answer or "(none)")
 
             # st.markdown("**Vector contexts (top):**")
             # for i, c in enumerate(vector_contexts, start=1):
