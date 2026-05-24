@@ -1,6 +1,6 @@
 # DocOps AI — RAG Chatbot + Multi-Agent Orchestrator
 
-DocOps AI is a production-ready documentation assistant that combines **Hybrid RAG** (Vector + Graph) with a **Multi-Agent Orchestrator** to automate engineering workflows.
+DocOps AI is a documentation assistant that combines **Hybrid RAG** (Vector + Graph) with a **Multi-Agent Orchestrator** to automate engineering workflows.
 
 ##  Features
 - **Hybrid Retrieval**: Combines PostgreSQL (`pgvector`) and Neo4j (Graph) for deep context awareness.
